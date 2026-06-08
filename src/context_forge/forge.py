@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Mapping, Optional
+from dataclasses import dataclass
+from typing import Iterable, List, Mapping, Optional
 
 from .chunker import chunk_document
 from .diversity import diversify
@@ -31,10 +31,19 @@ class ForgedContext:
     citations: dict
 
 
-def _run(chunks: List[Mapping], query: str, *, budget: int, lambda_: float, per_chunk_min: int) -> ForgedContext:
+def _run(
+    chunks: List[Mapping],
+    query: str,
+    *,
+    budget: int,
+    lambda_: float,
+    per_chunk_min: int,
+) -> ForgedContext:
     scored = score_chunks(query, chunks)
     diversified = diversify(scored, lambda_=lambda_)
-    pack = pack_to_budget(diversified, budget_tokens=budget, per_chunk_min=per_chunk_min)
+    pack = pack_to_budget(
+        diversified, budget_tokens=budget, per_chunk_min=per_chunk_min
+    )
 
     risks: List[dict] = []
     blocks: List[dict] = []
@@ -116,7 +125,9 @@ def pack_context(
     docs = list(documents or [])
     chunks: List[dict] = []
     for doc in docs:
-        chunks.extend(chunk_document(doc, max_tokens=max_tokens, overlap_tokens=overlap_tokens))
+        chunks.extend(
+            chunk_document(doc, max_tokens=max_tokens, overlap_tokens=overlap_tokens)
+        )
     return _run(
         chunks,
         query if isinstance(query, str) else "",
@@ -130,7 +141,11 @@ def render_context_block(blocks: Iterable[Mapping]) -> str:
     """Format kept blocks as XML-like ``<context>`` tags for prompting."""
     out = []
     for index, block in enumerate(blocks):
-        bid = block.get("id") if isinstance(block, Mapping) and block.get("id") else "block-" + str(index)
+        bid = (
+            block.get("id")
+            if isinstance(block, Mapping) and block.get("id")
+            else "block-" + str(index)
+        )
         if isinstance(block, Mapping) and block.get("source"):
             source = block.get("source")
         elif isinstance(block, Mapping) and block.get("sourceId"):
@@ -139,6 +154,14 @@ def render_context_block(blocks: Iterable[Mapping]) -> str:
             source = "unknown"
         text = block.get("text", "") if isinstance(block, Mapping) else ""
         out.append(
-            '<context index="' + str(index + 1) + '" id="' + str(bid) + '" source="' + str(source) + '">\n' + str(text) + "\n</context>"
+            '<context index="'
+            + str(index + 1)
+            + '" id="'
+            + str(bid)
+            + '" source="'
+            + str(source)
+            + '">\n'
+            + str(text)
+            + "\n</context>"
         )
     return "\n\n".join(out)

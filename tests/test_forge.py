@@ -17,7 +17,10 @@ def _doc(text, did="doc1"):
 
 def test_forge_returns_ForgedContext():
     chunks = [
-        {"id": "a", "text": "Pluto is a dwarf planet that lives in the Kuiper belt." * 4},
+        {
+            "id": "a",
+            "text": "Pluto is a dwarf planet that lives in the Kuiper belt." * 4,
+        },
     ]
     out = forge(chunks, query="Pluto", budget=200, per_chunk_min=10)
     assert isinstance(out, ForgedContext)
@@ -74,7 +77,7 @@ def test_forge_negative_budget_raises():
 
 
 def test_pack_context_chunks_documents_and_packs():
-    long_text = ("Pluto was reclassified as a dwarf planet in 2006. " * 20)
+    long_text = "Pluto was reclassified as a dwarf planet in 2006. " * 20
     out = pack_context(
         query="Pluto",
         documents=[_doc(long_text)],

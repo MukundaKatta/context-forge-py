@@ -15,10 +15,23 @@ from typing import List
 ZERO_WIDTH = re.compile("[​‌‍﻿]")
 
 _RULES = [
-    ("ignore_instructions", "high", re.compile(r"ignore\s+(all|previous|prior|above)\s+instructions", re.IGNORECASE)),
+    (
+        "ignore_instructions",
+        "high",
+        re.compile(
+            r"ignore\s+(all|previous|prior|above)\s+instructions", re.IGNORECASE
+        ),
+    ),
     ("system_prefix", "high", re.compile(r"^system:\s", re.IGNORECASE | re.MULTILINE)),
     ("you_are_now", "med", re.compile(r"you\s+are\s+now\b", re.IGNORECASE)),
-    ("role_tag", "high", re.compile(r"<\|system\|>|<\|assistant\|>|<\|user\|>|\[INST\]|###\s*system\b", re.IGNORECASE)),
+    (
+        "role_tag",
+        "high",
+        re.compile(
+            r"<\|system\|>|<\|assistant\|>|<\|user\|>|\[INST\]|###\s*system\b",
+            re.IGNORECASE,
+        ),
+    ),
     ("exfil_curl", "high", re.compile(r"\bcurl\s+[^\s|]*https?://", re.IGNORECASE)),
     ("exfil_wget", "high", re.compile(r"\bwget\s+[^\s|]*https?://", re.IGNORECASE)),
     ("exfil_base64", "med", re.compile(r"\bbase64\s+-d\b", re.IGNORECASE)),

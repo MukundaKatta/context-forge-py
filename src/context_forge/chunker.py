@@ -31,7 +31,9 @@ def _split_sentences(paragraph: str) -> List[str]:
     return [paragraph]
 
 
-def chunk_document(doc: Mapping, *, max_tokens: int = 200, overlap_tokens: int = 20) -> List[dict]:
+def chunk_document(
+    doc: Mapping, *, max_tokens: int = 200, overlap_tokens: int = 20
+) -> List[dict]:
     """Split ``doc`` into chunk dicts.
 
     ``doc`` is a mapping with ``text`` and an optional ``id`` / ``path`` /
@@ -43,7 +45,11 @@ def chunk_document(doc: Mapping, *, max_tokens: int = 200, overlap_tokens: int =
     doc_id = (
         str(doc.get("id"))
         if isinstance(doc, Mapping) and doc.get("id")
-        else (str(doc.get("path")) if isinstance(doc, Mapping) and doc.get("path") else "doc")
+        else (
+            str(doc.get("path"))
+            if isinstance(doc, Mapping) and doc.get("path")
+            else "doc"
+        )
     )
     if isinstance(doc, Mapping) and doc.get("source") is not None:
         source = doc.get("source")
@@ -56,14 +62,31 @@ def chunk_document(doc: Mapping, *, max_tokens: int = 200, overlap_tokens: int =
     if not text.strip():
         return []
 
-    units: List[str] = []
+    # Collect units together with their true character offsets in ``text`` so
+    # citation spans stay correct even when units repeat or are reused as
+    # overlap. ``locate`` advances a monotonic search cursor so identical units
+    # map to successive (not the first) occurrences.
+    units: List[tuple] = []  # (text, start, end)
+    locate_cursor = 0
+
+    def locate(unit: str) -> tuple:
+        nonlocal locate_cursor
+        idx = text.find(unit, locate_cursor)
+        if idx == -1:
+            idx = locate_cursor
+            end = idx + len(unit)
+        else:
+            end = idx + len(unit)
+            locate_cursor = end
+        return unit, idx, end
+
     for paragraph in _split_paragraphs(text):
         if estimate_tokens(paragraph) <= max_tokens:
-            units.append(paragraph)
+            units.append(locate(paragraph))
             continue
         for sentence in _split_sentences(paragraph):
             if estimate_tokens(sentence) <= max_tokens:
-                units.append(sentence)
+                units.append(locate(sentence))
                 continue
             # Word-level fallback for runaway sentences.
             words = re.split(r"\s+", sentence)
@@ -71,34 +94,24 @@ def chunk_document(doc: Mapping, *, max_tokens: int = 200, overlap_tokens: int =
             for word in words:
                 candidate = (" ".join(buffer) + " " + word).strip() if buffer else word
                 if buffer and estimate_tokens(candidate) > max_tokens:
-                    units.append(" ".join(buffer))
+                    units.append(locate(" ".join(buffer)))
                     buffer = [word]
                 else:
                     buffer.append(word)
             if buffer:
-                units.append(" ".join(buffer))
+                units.append(locate(" ".join(buffer)))
 
     chunks: List[dict] = []
-    cursor = 0
-    buffer: List[str] = []
+    buffer: List[tuple] = []
     buffer_tokens = 0
     counter = [0]
 
     def flush():
         if not buffer:
             return
-        nonlocal cursor
-        chunk_text = "\n\n".join(buffer)
-        first_unit = buffer[0]
-        last_unit = buffer[-1]
-        start = text.find(first_unit, cursor)
-        if start == -1:
-            start = cursor
-        last_index = text.find(last_unit, start)
-        if last_index == -1:
-            end = start + len(chunk_text)
-        else:
-            end = last_index + len(last_unit)
+        chunk_text = "\n\n".join(u[0] for u in buffer)
+        start = buffer[0][1]
+        end = buffer[-1][2]
         cid = doc_id + "#" + str(counter[0])
         counter[0] += 1
         chunks.append(
@@ -112,17 +125,16 @@ def chunk_document(doc: Mapping, *, max_tokens: int = 200, overlap_tokens: int =
                 "tokens": estimate_tokens(chunk_text),
             }
         )
-        cursor = end
 
     for unit in units:
-        unit_tokens = estimate_tokens(unit)
+        unit_tokens = estimate_tokens(unit[0])
         if buffer and buffer_tokens + unit_tokens > max_tokens:
             flush()
             if overlap > 0:
-                tail: List[str] = []
+                tail: List[tuple] = []
                 tail_tokens = 0
                 for prev in reversed(buffer):
-                    t = estimate_tokens(prev)
+                    t = estimate_tokens(prev[0])
                     if tail_tokens + t > overlap:
                         break
                     tail.insert(0, prev)

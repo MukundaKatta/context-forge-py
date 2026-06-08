@@ -29,7 +29,9 @@ def diversify(scored_chunks: List[Mapping], lambda_: float = 0.7) -> List[dict]:
     """
     if not scored_chunks:
         return []
-    chunks = [dict(c) if isinstance(c, Mapping) else {"text": ""} for c in scored_chunks]
+    chunks = [
+        dict(c) if isinstance(c, Mapping) else {"text": ""} for c in scored_chunks
+    ]
     token_sets = [set(tokenize(c.get("text", ""))) for c in chunks]
     remaining = list(range(len(chunks)))
     selected: List[int] = []
